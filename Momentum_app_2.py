@@ -1,48 +1,29 @@
 import streamlit as st
-import pandas as pd
 import yfinance as yf
-import talib
-import matplotlib.pyplot as plt
+import pandas_ta as ta
 from openai import OpenAI
-
-
-
 
 client = OpenAI(api_key="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")
 
-def bollingerbands(company_name,data_text):
-    
+def bollingerbands(company_name, data_text):
     chat_completion = client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            # System message to define the assistant's behavior
             {
                 "role": "system",
-                "content":"You are an AI model designed to assist long-term day traders in analyzing stock market data. "
+                "content": "You are an AI model designed to assist long-term day traders in analyzing stock market data. "
                     "Your primary task is to interpret stock trading data, especially focusing on Bollinger Bands, "
                     "to identify key market trends. When provided with relevant data you will: "
-                    "\n\n- Analyze the stock's current position relative to its Bollinger Bands (upper, middle, or lower bands)."
-                    "\n- Assess if the stock is in an uptrend, downtrend, or nearing a breakout."
-                    "\n- Determine if the stock is prone to a reversal based on price movements, volatility, and Bollinger Band contraction or expansion."
-                    "\n- Provide a concise, expert-level explanation of your analysis, including how specific Bollinger Band characteristics (e.g., squeeze, volatility changes, band width) "
-                    "indicate potential market moves."
-                    "\n\nEnsure that your explanations are clear and easy to understand, even for users with little to no trading experience, avoiding complex jargon or offering simple definitions where necessary. "
-                    "Your output should balance depth and simplicity, offering actionable insights for traders while being accessible to non-traders."
-                
+                    "Analyze the stock's current position relative to its Bollinger Bands (upper, middle, or lower bands) and provide insights."
             },
-            # User message with a prompt requesting stock analysis for a specific company
             {
                 "role": "user",
                 "content": f"Please analyze the stock data for {company_name}, here is the data {data_text}, What insights can you provide from observing the Bollinger Bands?"
-                
             },
         ]
     )
-
     response = chat_completion.choices[0].message.content
     return response
-
-
 def SMA(company_name,data_text):
     
     chat_completion = client.chat.completions.create(
@@ -254,10 +235,10 @@ def SUMMARY(company_name,BD,SMA,RSI,MACD,OBV,ADX):
     response = chat_completion.choices[0].message.content
     return response
 
+
 def update_progress(progress_bar, stage, progress, message):
     progress_bar.progress(progress)
     st.text(message)
-
 
 # Main application
 st.title("Stock Market Analysis with Technical Indicators")
@@ -278,16 +259,21 @@ if ticker:
     data = yf.download(ticker, period="1y")
     update_progress(progress_bar, 10, 10, "Fetched stock data...")
     
-
-    # Calculate technical indicators
-    data['SMA_20'] = talib.SMA(data['Close'], timeperiod=20)
-    data['SMA_50'] = talib.SMA(data['Close'], timeperiod=50)
-    data['SMA_200'] = talib.SMA(data['Close'], timeperiod=200)
-    data['RSI'] = talib.RSI(data['Close'], timeperiod=14)
-    data['MACD'], data['MACD_signal'], data['MACD_hist'] = talib.MACD(data['Close'], fastperiod=12, slowperiod=26, signalperiod=9)
-    data['OBV'] = talib.OBV(data['Close'], data['Volume'])
-    data['ADX'] = talib.ADX(data['High'], data['Low'], data['Close'], timeperiod=14)
-    data['upper_band'], data['middle_band'], data['lower_band'] = talib.BBANDS(data['Close'], timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
+    # Calculate technical indicators using pandas_ta
+    data['SMA_20'] = ta.sma(data['Close'], length=20)
+    data['SMA_50'] = ta.sma(data['Close'], length=50)
+    data['SMA_200'] = ta.sma(data['Close'], length=200)
+    data['RSI'] = ta.rsi(data['Close'], length=14)
+    macd = ta.macd(data['Close'])
+    data['MACD'] = macd['MACD_12_26_9']
+    data['MACD_signal'] = macd['MACDs_12_26_9']
+    data['MACD_hist'] = macd['MACDh_12_26_9']
+    data['OBV'] = ta.obv(data['Close'], data['Volume'])
+    data['ADX'] = ta.adx(data['High'], data['Low'], data['Close'])['ADX_14']
+    bbands = ta.bbands(data['Close'], length=20, std=2)
+    data['upper_band'] = bbands['BBU_20_2.0']
+    data['middle_band'] = bbands['BBM_20_2.0']
+    data['lower_band'] = bbands['BBL_20_2.0']
     update_progress(progress_bar, 40, 40, "Calculated technical indicators...")
 
     # Prepare data for each technical indicator
@@ -307,7 +293,7 @@ if ticker:
     macd_result = MACD(ticker, macd_markdown)
     obv_result = OBV(ticker, obv_markdown)
     adx_result = ADX(ticker, adx_markdown)
-    update_progress(progress_bar, 80, 80, "Analysing...")
+    update_progress(progress_bar, 80, 80, "Analyzing...")
 
     # Get summary
     summary = SUMMARY(ticker, bd_result, sma_result, rsi_result, macd_result, obv_result, adx_result)

@@ -2,15 +2,9 @@ gitdb==4.0.11
 GitPython==3.1.40
 ipykernel==6.23.2
 ipython==8.12.3
-markdown-it-py==3.0.0
-matplotlib==3.7.2
-matplotlib-inline==0.1.6
-numpy==1.26.2
 openai==1.48.0
 opencv-python==4.7.0.72
 opencv-python-headless==4.8.0.74
-pandas==2.0.2
 streamlit==1.29.0
-Cython==3.0.11
-TA-Lib
+pandas_ta==0.3.14b0
 yfinance==0.2.43
