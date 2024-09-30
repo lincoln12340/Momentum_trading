@@ -4,16 +4,10 @@ import pandas_ta as ta
 from openai import OpenAI
 import toml
 
-config = toml.load("config.toml")
-
-# Get API key from the TOML file
-api_key = config["openai"]["api_key"]
-
-# Print API key to verify it is loaded correctly (for debugging purposes)
-print(api_key)
+api_key = st.secrets["openai"]["api_key"]
 
 
-client = OpenAI(api_key="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")
+client = OpenAI(api_key=api_key)
 
 def bollingerbands(company_name, data_text):
     chat_completion = client.chat.completions.create(
