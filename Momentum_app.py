@@ -5,6 +5,9 @@ import talib
 import matplotlib.pyplot as plt
 from openai import OpenAI
 
+
+
+
 client = OpenAI(api_key="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")
 
 def bollingerbands(company_name,data_text):
