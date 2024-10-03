@@ -4,7 +4,7 @@ import pandas_ta as ta
 from openai import OpenAI
 import toml
 
-api_key = st.secrets["openai"]["api_key"]
+api_key = st.secrets["auth_token"]
 
 
 client = OpenAI(api_key=api_key)
