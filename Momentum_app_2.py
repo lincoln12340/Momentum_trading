@@ -297,7 +297,7 @@ if ticker and timeframe:
         if data[['SMA_20', 'SMA_50', 'SMA_200']].notna().any().any():
             sma_available = True
         else:
-            update_progress(progress_bar, 30, 30, "SMA is not available...")
+            update_progress(progress_bar, 25, 25, "SMA is not available...")
 
     # Calculate RSI
     rsi_available = False
@@ -317,7 +317,7 @@ if ticker and timeframe:
         data['MACD_hist'] = macd['MACDh_12_26_9']
         macd_available = True
     else:
-        update_progress(progress_bar, 30, 30, "MACD is not available...")
+        update_progress(progress_bar, 35, 35, "MACD is not available...")
 
     # Calculate OBV
     obv_available = False
@@ -326,7 +326,7 @@ if ticker and timeframe:
         if 'OBV' in data.columns and data['OBV'].notna().any():
             obv_available = True
         else:
-            update_progress(progress_bar, 30, 30, "OBV is not available...")
+            update_progress(progress_bar, 45, 45, "OBV is not available...")
 
     # Calculate ADX
     adx_available = False
@@ -335,7 +335,7 @@ if ticker and timeframe:
         data['ADX'] = adx['ADX_14']
         adx_available = True
     else:
-        update_progress(progress_bar, 30, 30, "ADX is not available...")
+        update_progress(progress_bar, 50, 50, "ADX is not available...")
 
     # Calculate Bollinger Bands
     bbands_available = False
@@ -346,7 +346,7 @@ if ticker and timeframe:
         data['lower_band'] = bbands['BBL_20_2.0']
         bbands_available = True
     else:
-        update_progress(progress_bar, 30, 30, "Bollinger Bands are not available...")
+        update_progress(progress_bar, 55, 55, "Bollinger Bands are not available...")
 
         # Prepare data for each technical indicator
     recent_data = data
