@@ -2,7 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas_ta as ta
 from openai import OpenAI
-import toml
+
 
 api_key = st.secrets["auth_token"]
 
