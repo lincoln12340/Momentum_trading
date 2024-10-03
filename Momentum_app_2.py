@@ -256,45 +256,124 @@ progress_bar = st.progress(0)
 status_text = st.empty()
 
 # Display input fields and progress side by side
+st.subheader("Select a Timeframe for Analysis")
 col1, col2 = st.columns(2)
+timeframe = None
 
-if ticker:
-    # Fetch historical data for the last year
-    data = yf.download(ticker, period="1y")
-    update_progress(progress_bar, 10, 10, "Fetched stock data...")
+if col1.button("1 Month"):
+    timeframe = "1 Month"
+elif col2.button("1 Year"):
+    timeframe = "1 Year"
+
+
+# Mapping timeframe to periods
+timeframe_mapping = {
+    "1 Month": 30,       # last 30 days of trading data
+    "1 Year": 365,       # last year (about 252 trading days)
+}
+
+if ticker and timeframe:
+
+    if timeframe == "1 Month":
+        data = yf.download(ticker, period="1mo")
+    elif timeframe == "1 Year":
+        data = yf.download(ticker, period="1y")
+
+   
     
-    # Calculate technical indicators using pandas_ta
-    data['SMA_20'] = ta.sma(data['Close'], length=20)
-    data['SMA_50'] = ta.sma(data['Close'], length=50)
-    data['SMA_200'] = ta.sma(data['Close'], length=200)
-    data['RSI'] = ta.rsi(data['Close'], length=14)
-    macd = ta.macd(data['Close'])
-    data['MACD'] = macd['MACD_12_26_9']
-    data['MACD_signal'] = macd['MACDs_12_26_9']
-    data['MACD_hist'] = macd['MACDh_12_26_9']
-    data['OBV'] = ta.obv(data['Close'], data['Volume'])
-    data['ADX'] = ta.adx(data['High'], data['Low'], data['Close'])['ADX_14']
-    bbands = ta.bbands(data['Close'], length=20, std=2)
-    data['upper_band'] = bbands['BBU_20_2.0']
-    data['middle_band'] = bbands['BBM_20_2.0']
-    data['lower_band'] = bbands['BBL_20_2.0']
-    update_progress(progress_bar, 40, 40, "Calculated technical indicators...")
+    
+    # Check if data is empty
+    if data.empty:
+        st.warning(f"No data available for {ticker}. Please check the ticker symbol and try again.")
+    else:
+        update_progress(progress_bar, 10, 10, "Fetched stock data...")
+        
+        # Calculate technical indicators using pandas_ta
+        sma_available = False
+    if 'Close' in data.columns:
+        data['SMA_20'] = ta.sma(data['Close'], length=20)
+        data['SMA_50'] = ta.sma(data['Close'], length=50)
+        data['SMA_200'] = ta.sma(data['Close'], length=200)
+        if data[['SMA_20', 'SMA_50', 'SMA_200']].notna().any().any():
+            sma_available = True
+        else:
+            update_progress(progress_bar, 30, 30, "SMA is not available...")
 
-    # Prepare data for each technical indicator
-    recent_data = data.tail(30)
+    # Calculate RSI
+    rsi_available = False
+    if 'Close' in data.columns:
+        data['RSI'] = ta.rsi(data['Close'], length=14)
+        if 'RSI' in data.columns and data['RSI'].notna().any():
+            rsi_available = True
+        else:
+            update_progress(progress_bar, 30, 30, "RSI is not available...")
+
+    # Calculate MACD
+    macd_available = False
+    macd = ta.macd(data['Close'])
+    if macd is not None and 'MACD_12_26_9' in macd.columns and 'MACDs_12_26_9' in macd.columns and 'MACDh_12_26_9' in macd.columns:
+        data['MACD'] = macd['MACD_12_26_9']
+        data['MACD_signal'] = macd['MACDs_12_26_9']
+        data['MACD_hist'] = macd['MACDh_12_26_9']
+        macd_available = True
+    else:
+        update_progress(progress_bar, 30, 30, "MACD is not available...")
+
+    # Calculate OBV
+    obv_available = False
+    if 'Close' in data.columns and 'Volume' in data.columns:
+        data['OBV'] = ta.obv(data['Close'], data['Volume'])
+        if 'OBV' in data.columns and data['OBV'].notna().any():
+            obv_available = True
+        else:
+            update_progress(progress_bar, 30, 30, "OBV is not available...")
+
+    # Calculate ADX
+    adx_available = False
+    adx = ta.adx(data['High'], data['Low'], data['Close'])
+    if adx is not None and 'ADX_14' in adx.columns:
+        data['ADX'] = adx['ADX_14']
+        adx_available = True
+    else:
+        update_progress(progress_bar, 30, 30, "ADX is not available...")
+
+    # Calculate Bollinger Bands
+    bbands_available = False
+    bbands = ta.bbands(data['Close'], length=20, std=2)
+    if bbands is not None and 'BBU_20_2.0' in bbands.columns and 'BBM_20_2.0' in bbands.columns and 'BBL_20_2.0' in bbands.columns:
+        data['upper_band'] = bbands['BBU_20_2.0']
+        data['middle_band'] = bbands['BBM_20_2.0']
+        data['lower_band'] = bbands['BBL_20_2.0']
+        bbands_available = True
+    else:
+        update_progress(progress_bar, 30, 30, "Bollinger Bands are not available...")
+
+        # Prepare data for each technical indicator
+    recent_data = data
     bd_markdown = recent_data[["Open", "High", "Low", "Close", "Volume", "upper_band", "middle_band", "lower_band"]].to_markdown()
     sma_markdown = recent_data[["Open", "High", "Low", "Close", "SMA_20", "SMA_50", "SMA_200"]].to_markdown()
     rsi_markdown = recent_data[["Open", "High", "Low", "Close", "RSI"]].to_markdown()
-    macd_markdown = recent_data[["Open", "High", "Low", "Close", "MACD", "MACD_signal", "MACD_hist"]].to_markdown()
+
+    # If MACD is available, prepare MACD data
+    if macd_available:
+        macd_markdown = recent_data[["Open", "High", "Low", "Close", "MACD", "MACD_signal", "MACD_hist"]].to_markdown()
+
     obv_markdown = recent_data[["Open", "High", "Low", "Close", "Volume", "OBV"]].to_markdown()
     adx_markdown = recent_data[["Open", "High", "Low", "Close", "ADX"]].to_markdown()
-    update_progress(progress_bar, 60, 60, "Prepared data for AI analysis...")
+
+    update_progress(progress_bar, 60, 60, "Preparing data for AI analysis...")
 
     # Get analysis from OpenAI
     bd_result = bollingerbands(ticker, bd_markdown)
     sma_result = SMA(ticker, sma_markdown)
     rsi_result = RSI(ticker, rsi_markdown)
-    macd_result = MACD(ticker, macd_markdown)
+
+    # Only call MACD analysis if MACD data is available
+    if macd_available:
+        macd_result = MACD(ticker, macd_markdown)
+    else:
+        macd_result = "MACD analysis not available."
+
     obv_result = OBV(ticker, obv_markdown)
     adx_result = ADX(ticker, adx_markdown)
     update_progress(progress_bar, 80, 80, "Analyzing...")
@@ -308,23 +387,33 @@ if ticker:
     st.write(summary)
 
     # Use an expander to show detailed analysis for each indicator
-    with st.expander("View Detailed Analysis for Bollinger Bands"):
-        st.write(bd_result)
+    if bbands_available:
+        with st.expander("View Detailed Analysis for Bollinger Bands"):
+            st.write(bd_result)
     
-    with st.expander("View Detailed Analysis for SMA"):
-        st.write(sma_result)
+    if sma_available:
+        with st.expander("View Detailed Analysis for SMA"):
+            st.write(sma_result)
 
-    with st.expander("View Detailed Analysis for RSI"):
-        st.write(rsi_result)
+    if rsi_available:
+        with st.expander("View Detailed Analysis for RSI"):
+            st.write(rsi_result)
 
-    with st.expander("View Detailed Analysis for MACD"):
-        st.write(macd_result)
+    if macd_available:
+        with st.expander("View Detailed Analysis for MACD"):
+            st.write(macd_result)
 
-    with st.expander("View Detailed Analysis for OBV"):
-        st.write(obv_result)
+    if obv_available:
+        with st.expander("View Detailed Analysis for OBV"):
+            st.write(obv_result)
 
-    with st.expander("View Detailed Analysis for ADX"):
-        st.write(adx_result)
+    if adx_available:
+        with st.expander("View Detailed Analysis for ADX"):
+            st.write(adx_result)
+
+    if st.button("Run Another Stock"):
+        analysis_complete = False
+        st.experimental_rerun() 
 
 else:
     st.info("Please enter a valid ticker symbol to begin the analysis.")
