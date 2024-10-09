@@ -2,7 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas_ta as ta
 from openai import OpenAI
-import time
+
 
 
 
@@ -663,7 +663,6 @@ def SUMMARY(company_name,BD,SMA,RSI,MACD,OBV,ADX):
 def update_progress(progress_bar, stage, progress, message):
     progress_bar.progress(progress)
     st.text(message)
-    time.sleep(5)
     st.empty()
 
 def merge_news_and_technical_analysis_summary(company_name, news_summary, technical_summary):
