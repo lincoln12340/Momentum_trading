@@ -4,6 +4,7 @@ import pandas_ta as ta
 from openai import OpenAI
 
 
+
 api_key = st.secrets["auth_token"]
 
 
