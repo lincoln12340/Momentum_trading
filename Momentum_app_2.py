@@ -57,6 +57,7 @@ def main():
                 # Check if data is empty
                 if data.empty:
                     st.warning(f"No data available for {ticker}. Please check the ticker symbol and try again.")
+                    st.rerun
                 else:
                     update_progress(progress_bar, 10, 10, "Fetched stock data...")
                     
