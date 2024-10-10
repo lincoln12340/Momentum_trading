@@ -333,7 +333,7 @@ def main():
                         # Add news and event analysis code here
                 news_response = generate_company_news_message(ticker, timeframe)
                 update_progress(progress_bar, 90, 90, "Nearly Finished!")
-                ovr_summary = merge_news_and_technical_analysis_summary(ticker,news_response,summary)
+                ovr_summary = merge_news_and_technical_analysis_summary(ticker,news_response,summary,timeframe)
                 update_progress(progress_bar, 100, 100, "Analysis complete!")
                 st.subheader(f"News and Events Analysis and Technical Analysis for {ticker} over the past {timeframe}")
                 st.write(ovr_summary)
@@ -366,7 +366,7 @@ def main():
 
 
 
-def merge_news_and_technical_analysis_summary(company_name, news_summary, technical_summary):
+def merge_news_and_technical_analysis_summary(company_name, news_summary, technical_summary,time_period):
     """
     Combines the news and events summary with the technical analysis summary using OpenAI's GPT model.
     
@@ -397,8 +397,8 @@ def merge_news_and_technical_analysis_summary(company_name, news_summary, techni
                     f"Please create a combined summary for the company {company_name} using the following information:\n\n"
                     f"News and Events Summary:\n{news_summary}\n\n"
                     f"Technical Analysis Summary:\n{technical_summary}\n\n"
-                    "Merge these details into one cohesive summary, highlighting how the news may impact the stock's technical indicators and providing "
-                    "an overall outlook on the stock's potential future performance."
+                    "Merge these details into one cohesive summary, make it flow, highlighting how the news may impact the stock's technical indicators and providing "
+                    f"an in-depth overall outlook on the stock's potential future performance for the next coming {time_period} , plus provide actionable recommendations as well."
                 ),
             },
         ]
