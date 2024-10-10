@@ -220,7 +220,7 @@ def main():
                     st.experimental_rerun()
             
             if news_and_events and technical_analysis:
-                st.write("Performing Technical Analysis 2...")
+                st.write("Performing Technical Analysis ...")
                 
                 # Check if data is empty
                 if data.empty:
