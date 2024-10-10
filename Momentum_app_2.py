@@ -388,7 +388,7 @@ def merge_news_and_technical_analysis_summary(company_name, news_summary, techni
                     "You are an AI assistant that helps traders and investors make decisions by analyzing market data. "
                     "Your goal is to merge news and events with technical analysis to create a comprehensive summary that provides "
                     "actionable insights. The summary should be clear, concise, and include an overview of both the fundamental aspects (news) "
-                    "and technical trends of the stock. Focus on the overall overview and actionable recommendations"
+                    "and technical trends of the stock. At the end should be an elaborate, focused overall overview with actionable recommendations based on future news and previous trends "
                 ),
             },
             {
@@ -398,7 +398,7 @@ def merge_news_and_technical_analysis_summary(company_name, news_summary, techni
                     f"News and Events Summary:\n{news_summary}\n\n"
                     f"Technical Analysis Summary:\n{technical_summary}\n\n"
                     "Merge these details into one cohesive summary, make it flow, highlighting how the news may impact the stock's technical indicators and providing "
-                    f"an in-depth overall outlook on the stock's potential future performance for the next coming {time_period} , plus provide actionable recommendations as well."
+                    f"an in-depth overall outlook on the stock's potential future performance for the next coming {time_period}, plus provide actionable recommendations as well."
                 ),
             },
         ]
