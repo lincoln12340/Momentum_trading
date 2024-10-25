@@ -164,6 +164,7 @@ def main():
                 # Get summary
                 summary = SUMMARY(ticker, bd_result, sma_result, rsi_result, macd_result, obv_result, adx_result)
                 txt_summary = generate_company_news_message(company, timeframe)
+                txt_summary = format_news(txt_summary)
                 ovr_summary = merge_news_and_technical_analysis_summary(company,txt_summary,summary,timeframe)
                 update_progress(progress_bar, 100, 100, "Analysis complete!")
 
@@ -174,27 +175,40 @@ def main():
                 # Use an expander to show detailed analysis for each indicator
                 if bbands_available:
                     with st.expander("View Detailed Analysis for Bollinger Bands"):
-                        st.write(bd_result)
-                
+                        fig_bbands = plot_bbands(data)
+                        st.plotly_chart(fig_bbands)
+                        st.write(bd_result)  # Display Bollinger Bands result or interpretation
+
                 if sma_available:
                     with st.expander("View Detailed Analysis for SMA"):
-                        st.write(sma_result)
+                        fig_sma = plot_sma(data)
+                        st.plotly_chart(fig_sma)
+                        st.write(sma_result)  # Display SMA result or interpretation
 
                 if rsi_available:
                     with st.expander("View Detailed Analysis for RSI"):
-                        st.write(rsi_result)
+                        fig_rsi = plot_rsi(data)
+                        st.plotly_chart(fig_rsi)
+                        st.write(rsi_result)  # Display RSI result or interpretation
 
                 if macd_available:
                     with st.expander("View Detailed Analysis for MACD"):
-                        st.write(macd_result)
+                        fig_macd = plot_macd(data)
+                        st.plotly_chart(fig_macd)
+                        st.write(macd_result)  # Display MACD result or interpretation
 
                 if obv_available:
                     with st.expander("View Detailed Analysis for OBV"):
-                        st.write(obv_result)
+                        fig_obv = plot_obv(data)
+                        st.plotly_chart(fig_obv)
+                        st.write(obv_result)  # Display OBV result or interpretation
 
                 if adx_available:
                     with st.expander("View Detailed Analysis for ADX"):
-                        st.write(adx_result)
+                        fig_adx = plot_adx(data)
+                        st.plotly_chart(fig_adx)
+                        st.write(adx_result)  # Display ADX result or interpretation
+
 
                 if st.button("Run Another Stock"):
                     analysis_complete = False
@@ -231,27 +245,40 @@ def main():
 
                 if bbands_available:
                     with st.expander("View Detailed Analysis for Bollinger Bands"):
-                        st.write(bd_result)
-                
+                        fig_bbands = plot_bbands(data)
+                        st.plotly_chart(fig_bbands)
+                        st.write(bd_result)  # Display Bollinger Bands result or interpretation
+
                 if sma_available:
                     with st.expander("View Detailed Analysis for SMA"):
-                        st.write(sma_result)
+                        fig_sma = plot_sma(data)
+                        st.plotly_chart(fig_sma)
+                        st.write(sma_result)  # Display SMA result or interpretation
 
                 if rsi_available:
                     with st.expander("View Detailed Analysis for RSI"):
-                        st.write(rsi_result)
+                        fig_rsi = plot_rsi(data)
+                        st.plotly_chart(fig_rsi)
+                        st.write(rsi_result)  # Display RSI result or interpretation
 
                 if macd_available:
                     with st.expander("View Detailed Analysis for MACD"):
-                        st.write(macd_result)
+                        fig_macd = plot_macd(data)
+                        st.plotly_chart(fig_macd)
+                        st.write(macd_result)  # Display MACD result or interpretation
 
                 if obv_available:
                     with st.expander("View Detailed Analysis for OBV"):
-                        st.write(obv_result)
+                        fig_obv = plot_obv(data)
+                        st.plotly_chart(fig_obv)
+                        st.write(obv_result)  # Display OBV result or interpretation
 
                 if adx_available:
                     with st.expander("View Detailed Analysis for ADX"):
-                        st.write(adx_result)
+                        fig_adx = plot_adx(data)
+                        st.plotly_chart(fig_adx)
+                        st.write(adx_result)  # Display ADX result or interpretation
+
 
                 if st.button("Run Another Stock"):
                     analysis_complete = False
@@ -625,38 +652,78 @@ def update_progress(progress_bar, stage, progress, message):
     st.empty()
 
 
-def plot_sma(fig, data, row=1, col=1):
-    fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines', name='Close Price', line=dict(color='blue')), row=row, col=col)
-    fig.add_trace(go.Scatter(x=data.index, y=data['SMA_20'], mode='lines', name='SMA 20', line=dict(color='orange', dash='dash')), row=row, col=col)
-    fig.add_trace(go.Scatter(x=data.index, y=data['SMA_50'], mode='lines', name='SMA 50', line=dict(color='red', dash='dash')), row=row, col=col)
-    fig.add_trace(go.Scatter(x=data.index, y=data['SMA_200'], mode='lines', name='SMA 200', line=dict(color='green', dash='dash')), row=row, col=col)
+def format_news(txt_summary):
+    chat_completion = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            # System message to define the assistant's behavior
+            {
+                "role": "system",
+                "content":"You are an expert in formatting text"
+                
+            },
+            # User message with a prompt requesting stock analysis for a specific company
+            {
+                "role": "user",
+                "content": f"Please format the following {txt_summary} to ensure it is in font size 12. Make the [Date] and [Event Title] bold, and ensure that each event description is well-organized and easy to read."
+                
+            },
+        ]
+    )
+
+# Output the AI's response
+    response = chat_completion.choices[0].message.content
+    return response
+
+
+def update_progress(progress_bar, stage, progress, message):
+    progress_bar.progress(progress)
+    st.text(message)
+    st.empty()
+
+def plot_sma(data):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines', name='Close Price', line=dict(color='blue')))
+    fig.add_trace(go.Scatter(x=data.index, y=data['SMA_20'], mode='lines', name='SMA 20', line=dict(color='orange', dash='dash')))
+    fig.add_trace(go.Scatter(x=data.index, y=data['SMA_50'], mode='lines', name='SMA 50', line=dict(color='red', dash='dash')))
+    fig.add_trace(go.Scatter(x=data.index, y=data['SMA_200'], mode='lines', name='SMA 200', line=dict(color='green', dash='dash')))
+    return fig
 
 # Function to plot Bollinger Bands
-def plot_bbands(fig, data, row=1, col=1):
-    fig.add_trace(go.Scatter(x=data.index, y=data['upper_band'], mode='lines', name='Upper Band', line=dict(color='cyan', dash='dot')), row=row, col=col)
-    fig.add_trace(go.Scatter(x=data.index, y=data['middle_band'], mode='lines', name='Middle Band', line=dict(color='magenta', dash='dot')), row=row, col=col)
-    fig.add_trace(go.Scatter(x=data.index, y=data['lower_band'], mode='lines', name='Lower Band', line=dict(color='cyan', dash='dot')), row=row, col=col)
+def plot_bbands(data):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=data.index, y=data['upper_band'], mode='lines', name='Upper Band', line=dict(color='cyan', dash='dot')))
+    fig.add_trace(go.Scatter(x=data.index, y=data['middle_band'], mode='lines', name='Middle Band', line=dict(color='magenta', dash='dot')))
+    fig.add_trace(go.Scatter(x=data.index, y=data['lower_band'], mode='lines', name='Lower Band', line=dict(color='cyan', dash='dot')))
+    return fig
 
 # Function to plot RSI
-def plot_rsi(fig, data, row=2, col=1):
-    fig.add_trace(go.Scatter(x=data.index, y=data['RSI'], mode='lines', name='RSI', line=dict(color='purple')), row=row, col=col)
-    fig.add_hline(y=70, line=dict(color='red', dash='dash'), row=row, col=col)
-    fig.add_hline(y=30, line=dict(color='green', dash='dash'), row=row, col=col)
+def plot_rsi(data):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=data.index, y=data['RSI'], mode='lines', name='RSI', line=dict(color='purple')))
+    fig.add_hline(y=70, line=dict(color='red', dash='dash'))
+    fig.add_hline(y=30, line=dict(color='green', dash='dash'))
+    return fig
 
 # Function to plot MACD
-def plot_macd(fig, data, row=3, col=1):
-    fig.add_trace(go.Scatter(x=data.index, y=data['MACD'], mode='lines', name='MACD', line=dict(color='blue')), row=row, col=col)
-    fig.add_trace(go.Scatter(x=data.index, y=data['MACD_signal'], mode='lines', name='MACD Signal', line=dict(color='red')), row=row, col=col)
-    fig.add_trace(go.Bar(x=data.index, y=data['MACD_hist'], name='MACD Histogram', marker_color='gray', opacity=0.5), row=row, col=col)
+def plot_macd(data):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=data.index, y=data['MACD'], mode='lines', name='MACD', line=dict(color='blue')))
+    fig.add_trace(go.Scatter(x=data.index, y=data['MACD_signal'], mode='lines', name='MACD Signal', line=dict(color='red')))
+    fig.add_trace(go.Bar(x=data.index, y=data['MACD_hist'], name='MACD Histogram', marker_color='gray', opacity=0.5))
+    return fig
 
 # Function to plot OBV
-def plot_obv(fig, data, row=4, col=1):
-    fig.add_trace(go.Scatter(x=data.index, y=data['OBV'], mode='lines', name='OBV', line=dict(color='brown')), row=row, col=col)
+def plot_obv(data):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=data.index, y=data['OBV'], mode='lines', name='OBV', line=dict(color='brown')))
+    return fig
 
 # Function to plot ADX
-def plot_adx(fig, data, row=4, col=1):
-    fig.add_trace(go.Scatter(x=data.index, y=data['ADX'], mode='lines', name='ADX', line=dict(color='orange')), row=row, col=col)
-
+def plot_adx(data):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=data.index, y=data['ADX'], mode='lines', name='ADX', line=dict(color='orange')))
+    return fig
 
 if __name__=="__main__":
     main()
