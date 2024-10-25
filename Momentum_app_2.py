@@ -2,7 +2,6 @@ import streamlit as st
 import yfinance as yf
 import pandas_ta as ta
 from openai import OpenAI
-from perplexipy import PerplexityClient
 import time
 import requests
 import gspread
