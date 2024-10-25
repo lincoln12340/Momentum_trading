@@ -659,7 +659,7 @@ def format_news(txt_summary):
             # System message to define the assistant's behavior
             {
                 "role": "system",
-                "content":"You are an expert in formatting text"
+                "content":"You are an expert in formatting text. Only output the output text "
                 
             },
             # User message with a prompt requesting stock analysis for a specific company
