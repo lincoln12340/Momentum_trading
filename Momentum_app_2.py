@@ -2,14 +2,20 @@ import streamlit as st
 import yfinance as yf
 import pandas_ta as ta
 from openai import OpenAI
-
-
+from perplexipy import PerplexityClient
+import time
+import requests
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import plotly.graph_objs as go
+from plotly.subplots import make_subplots
 
 
 api_key = st.secrets["auth_token"]
 
 
 client = OpenAI(api_key=api_key)
+
 
 def main():
 
@@ -18,7 +24,8 @@ def main():
     st.markdown("**Analyze stock trends using advanced technical indicators powered by AI.**")
 
     # Get user input for ticker symbol
-    ticker = st.text_input("Enter Ticker Symbol", "", help="Enter the stock ticker symbol, e.g., 'AAPL' for Apple Inc.")
+    ticker = st.text_input("Enter Ticker Name", "", help="Enter the stock ticker symbol, e.g., 'AAPL' for Apple Inc.")
+    company = st.text_input("Enter Full Company Name", "", help="Enter Company Name, e.g., 'Fate' will be 'Fate Therapeutics'.")
     st.subheader("Select a Timeframe for Analysis")
 
     timeframe = st.radio(
@@ -39,30 +46,27 @@ def main():
     progress_bar = st.progress(0)
     status_text = st.empty()
 
-    if run_button:  # Check if the "Run" button is pressed
-        if (technical_analysis or news_and_events) and timeframe:
-            st.write(f"Analyzing data for the selected timeframe: {timeframe}")
-            if timeframe == "1 Month":
-                data = yf.download(ticker, period="1mo")
-            elif timeframe == "3 Months":
-                data = yf.download(ticker, period="3mo")
-            elif timeframe == "6 Months":
-                data = yf.download(ticker, period="6mo")
-            elif timeframe == "1 Year":
-                data = yf.download(ticker, period="1y")
+    if run_button:
+         
+        if timeframe == "1 Month":
+            data = yf.download(ticker, period="1mo")
+        elif timeframe == "3 Months":
+            data = yf.download(ticker, period="3mo")
+        elif timeframe == "6 Months":
+            data = yf.download(ticker, period="6mo")
+        elif timeframe == "1 Year":
+            data = yf.download(ticker, period="1y")  # Check if the "Run" button is pressed
 
-            if technical_analysis and not news_and_events:
-                st.write("Performing Technical Analysis...")
-                
-                # Check if data is empty
-                if data.empty:
-                    st.warning(f"No data available for {ticker}. Please check the ticker symbol and try again.")
-                    st.rerun
-                else:
-                    update_progress(progress_bar, 10, 10, "Fetched stock data...")
-                    
-                    # Calculate technical indicators using pandas_ta
-                    sma_available = False
+        if data.empty:
+                st.warning(f"No data available for {ticker}. Please check the ticker symbol and try again.")
+        if not company:
+                st.warning(f" Please add Name of company.")
+        else:
+            with st.expander("Downloading Data"):
+                st.write(f"Analyzing data for the selected timeframe: {timeframe}")
+                st.write("Performing Technical Analysis...")       # Check if data is empty
+                update_progress(progress_bar, 10, 10, "Fetched stock data...")        
+                sma_available = False
                 if 'Close' in data.columns:
                     data['SMA_20'] = ta.sma(data['Close'], length=20)
                     data['SMA_50'] = ta.sma(data['Close'], length=50)
@@ -72,7 +76,7 @@ def main():
                     else:
                         update_progress(progress_bar, 30, 30, "SMA is not available...")
 
-                # Calculate RSI
+                        # Calculate RSI
                 rsi_available = False
                 if 'Close' in data.columns:
                     data['RSI'] = ta.rsi(data['Close'], length=14)
@@ -81,7 +85,7 @@ def main():
                     else:
                         update_progress(progress_bar, 30, 30, "RSI is not available...")
 
-                # Calculate MACD
+                        # Calculate MACD
                 macd_available = False
                 macd = ta.macd(data['Close'])
                 if macd is not None and 'MACD_12_26_9' in macd.columns and 'MACDs_12_26_9' in macd.columns and 'MACDh_12_26_9' in macd.columns:
@@ -93,7 +97,7 @@ def main():
                 else:
                     update_progress(progress_bar, 30, 30, "MACD is not available...")
 
-                # Calculate OBV
+                        # Calculate OBV
                 obv_available = False
                 if 'Close' in data.columns and 'Volume' in data.columns:
                     data['OBV'] = ta.obv(data['Close'], data['Volume'])
@@ -102,7 +106,7 @@ def main():
                     else:
                         update_progress(progress_bar, 30, 30, "OBV is not available...")
 
-                # Calculate ADX
+                        # Calculate ADX
                 adx_available = False
                 adx = ta.adx(data['High'], data['Low'], data['Close'])
                 if adx is not None and 'ADX_14' in adx.columns:
@@ -112,7 +116,7 @@ def main():
                 else:
                     update_progress(progress_bar, 30, 30, "ADX is not available...")
 
-                # Calculate Bollinger Bands
+                        # Calculate Bollinger Bands
                 bbands_available = False
                 bbands = ta.bbands(data['Close'], length=20, std=2)
                 if bbands is not None and 'BBU_20_2.0' in bbands.columns and 'BBM_20_2.0' in bbands.columns and 'BBL_20_2.0' in bbands.columns:
@@ -124,7 +128,7 @@ def main():
                 else:
                     update_progress(progress_bar, 30, 30, "Bollinger Bands are not available...")
 
-                    # Prepare data for each technical indicator
+                            # Prepare data for each technical indicator
                 recent_data = data
                 bd_markdown = recent_data[["Open", "High", "Low", "Close", "Volume", "upper_band", "middle_band", "lower_band"]].to_markdown()
                 sma_markdown = recent_data[["Open", "High", "Low", "Close", "SMA_20", "SMA_50", "SMA_200"]].to_markdown()
@@ -139,7 +143,7 @@ def main():
 
                 update_progress(progress_bar, 60, 60, "Preparing data for AI analysis...")
 
-                # Get analysis from OpenAI
+                        # Get analysis from OpenAI
                 update_progress(progress_bar, 65, 65, "Bollinger Bands Analysis...")
                 bd_result = bollingerbands(ticker, bd_markdown)
                 update_progress(progress_bar, 70, 70, "SMA Analysis...")
@@ -160,11 +164,11 @@ def main():
 
                 # Get summary
                 summary = SUMMARY(ticker, bd_result, sma_result, rsi_result, macd_result, obv_result, adx_result)
+                txt_summary = generate_company_news_message(company, timeframe)
+                ovr_summary = merge_news_and_technical_analysis_summary(company,txt_summary,summary,timeframe)
                 update_progress(progress_bar, 100, 100, "Analysis complete!")
 
-                
-
-                # Display the summary in the second column
+            if technical_analysis and not news_and_events:
                 st.subheader(f"Summary for {ticker}")
                 st.write(summary)
 
@@ -204,11 +208,9 @@ def main():
                     st.experimental_rerun() 
 
             if news_and_events and not technical_analysis:
-                st.write("Analyzing News and Events...")
-                        # Add news and event analysis code here
-                news_response = generate_company_news_message(ticker, timeframe)
+                        
                 st.subheader(f"News and Events Analysis for {ticker} over the past {timeframe}")
-                st.write(news_response)
+                st.write(txt_summary)
 
                 if st.button("Run Another Stock"):
                     analysis_complete = False
@@ -219,126 +221,38 @@ def main():
                     st.session_state["6_months"] = False
                     st.session_state["1_year"] = False
                     st.experimental_rerun()
-            
+
             if news_and_events and technical_analysis:
-                st.write("Performing Technical Analysis ...")
-                
-                # Check if data is empty
-                if data.empty:
-                    st.stop
-                    st.success(f"No data available for {ticker}. Please check the ticker symbol and try again.")
-                else:
-                    update_progress(progress_bar, 5, 5, "Fetched stock data...")
-                    
-                    # Calculate technical indicators using pandas_ta
-                    sma_available = False
-                if 'Close' in data.columns:
-                    data['SMA_20'] = ta.sma(data['Close'], length=20)
-                    data['SMA_50'] = ta.sma(data['Close'], length=50)
-                    data['SMA_200'] = ta.sma(data['Close'], length=200)
-                    if data[['SMA_20', 'SMA_50', 'SMA_200']].notna().any().any():
-                        sma_available = True
-                    else:
-                        update_progress(progress_bar, 10, 10, "SMA is not available...")
-
-                # Calculate RSI
-                rsi_available = False
-                if 'Close' in data.columns:
-                    data['RSI'] = ta.rsi(data['Close'], length=14)
-                    if 'RSI' in data.columns and data['RSI'].notna().any():
-                        rsi_available = True
-                    else:
-                        update_progress(progress_bar, 15, 15, "RSI is not available...")
-
-                # Calculate MACD
-                macd_available = False
-                macd = ta.macd(data['Close'])
-                if macd is not None and 'MACD_12_26_9' in macd.columns and 'MACDs_12_26_9' in macd.columns and 'MACDh_12_26_9' in macd.columns:
-                    data['MACD'] = macd['MACD_12_26_9']
-                    data['MACD_signal'] = macd['MACDs_12_26_9']
-                    data['MACD_hist'] = macd['MACDh_12_26_9']
-                    macd_available = True
-                    
-                else:
-                    update_progress(progress_bar, 20, 20, "MACD is not available...")
-
-                # Calculate OBV
-                obv_available = False
-                if 'Close' in data.columns and 'Volume' in data.columns:
-                    data['OBV'] = ta.obv(data['Close'], data['Volume'])
-                    if 'OBV' in data.columns and data['OBV'].notna().any():
-                        obv_available = True
-                    else:
-                        update_progress(progress_bar, 25, 25, "OBV is not available...")
-
-                # Calculate ADX
-                adx_available = False
-                adx = ta.adx(data['High'], data['Low'], data['Close'])
-                if adx is not None and 'ADX_14' in adx.columns:
-                    data['ADX'] = adx['ADX_14']
-                    adx_available = True
-                    
-                else:
-                    update_progress(progress_bar, 30, 30, "ADX is not available...")
-
-                # Calculate Bollinger Bands
-                bbands_available = False
-                bbands = ta.bbands(data['Close'], length=20, std=2)
-                if bbands is not None and 'BBU_20_2.0' in bbands.columns and 'BBM_20_2.0' in bbands.columns and 'BBL_20_2.0' in bbands.columns:
-                    data['upper_band'] = bbands['BBU_20_2.0']
-                    data['middle_band'] = bbands['BBM_20_2.0']
-                    data['lower_band'] = bbands['BBL_20_2.0']
-                    bbands_available = True
-                    
-                else:
-                    update_progress(progress_bar, 35, 35, "Bollinger Bands are not available...")
-
-                    # Prepare data for each technical indicator
-                recent_data = data
-                bd_markdown = recent_data[["Open", "High", "Low", "Close", "Volume", "upper_band", "middle_band", "lower_band"]].to_markdown()
-                sma_markdown = recent_data[["Open", "High", "Low", "Close", "SMA_20", "SMA_50", "SMA_200"]].to_markdown()
-                rsi_markdown = recent_data[["Open", "High", "Low", "Close", "RSI"]].to_markdown()
-
-                # If MACD is available, prepare MACD data
-                if macd_available:
-                    macd_markdown = recent_data[["Open", "High", "Low", "Close", "MACD", "MACD_signal", "MACD_hist"]].to_markdown()
-
-                obv_markdown = recent_data[["Open", "High", "Low", "Close", "Volume", "OBV"]].to_markdown()
-                adx_markdown = recent_data[["Open", "High", "Low", "Close", "ADX"]].to_markdown()
-
-                update_progress(progress_bar, 40, 40, "Preparing data for AI analysis...")
-
-                # Get analysis from OpenAI
-                update_progress(progress_bar, 45, 45, "Bollinger Bands Analysis...")
-                bd_result = bollingerbands(ticker, bd_markdown)
-                update_progress(progress_bar, 50, 50, "SMA Analysis...")
-                sma_result = SMA(ticker, sma_markdown)
-                update_progress(progress_bar, 55, 55, "RSI Analysis...")
-                rsi_result = RSI(ticker, rsi_markdown)
-                update_progress(progress_bar, 60, 60, "MACD Analysis...")
-                # Only call MACD analysis if MACD data is available
-                if macd_available:
-                    macd_result = MACD(ticker, macd_markdown)
-                else:
-                    macd_result = "MACD analysis not available."  
-                update_progress(progress_bar, 65, 65, "OBV Analysis...")
-                obv_result = OBV(ticker, obv_markdown)
-                update_progress(progress_bar, 70, 70, "ADX Analysis...")
-                adx_result = ADX(ticker, adx_markdown)
-                update_progress(progress_bar, 80, 80, "Analyzing...")
-
-                # Get summary
-                summary = SUMMARY(ticker, bd_result, sma_result, rsi_result, macd_result, obv_result, adx_result)
-                update_progress(progress_bar, 85, 85, "Technical Analysis complete!")
-
-                st.write("Analyzing News and Events...")
-                        # Add news and event analysis code here
-                news_response = generate_company_news_message(ticker, timeframe)
-                update_progress(progress_bar, 90, 90, "Nearly Finished!")
-                ovr_summary = merge_news_and_technical_analysis_summary(ticker,news_response,summary,timeframe)
-                update_progress(progress_bar, 100, 100, "Analysis complete!")
                 st.subheader(f"News and Events Analysis and Technical Analysis for {ticker} over the past {timeframe}")
+                st.write(txt_summary)
+                st.subheader("Technical Analysis Summary")
+                st.write(summary)
                 st.write(ovr_summary)
+                st.subheader("Detailed Technical Analysis")
+
+                if bbands_available:
+                    with st.expander("View Detailed Analysis for Bollinger Bands"):
+                        st.write(bd_result)
+                
+                if sma_available:
+                    with st.expander("View Detailed Analysis for SMA"):
+                        st.write(sma_result)
+
+                if rsi_available:
+                    with st.expander("View Detailed Analysis for RSI"):
+                        st.write(rsi_result)
+
+                if macd_available:
+                    with st.expander("View Detailed Analysis for MACD"):
+                        st.write(macd_result)
+
+                if obv_available:
+                    with st.expander("View Detailed Analysis for OBV"):
+                        st.write(obv_result)
+
+                if adx_available:
+                    with st.expander("View Detailed Analysis for ADX"):
+                        st.write(adx_result)
 
                 if st.button("Run Another Stock"):
                     analysis_complete = False
@@ -348,13 +262,10 @@ def main():
                     st.session_state["3_months"] = False
                     st.session_state["6_months"] = False
                     st.session_state["1_year"] = False
-                    st.experimental_rerun()
-                  
-        
-                
-                    
-        else:
-            st.warning("Please select at least one analysis type to proceed.")
+                    st.experimental_rerun()     
+                     
+            else:
+                st.warning("Please select at least one analysis type to proceed.")
 
     #if t_col1.button("Technical Analysis"):
         #analysis_type = "Technical Analysis"
@@ -364,11 +275,8 @@ def main():
     
 
     
-   
 
-
-
-def merge_news_and_technical_analysis_summary(company_name, news_summary, technical_summary,time_period):
+def merge_news_and_technical_analysis_summary(company_name, news_summary,technical_summary,time_period):
     """
     Combines the news and events summary with the technical analysis summary using OpenAI's GPT model.
     
@@ -387,10 +295,16 @@ def merge_news_and_technical_analysis_summary(company_name, news_summary, techni
             {
                 "role": "system",
                 "content": (
-                    "You are an AI assistant that helps traders and investors make decisions by analyzing market data. "
-                    "Your goal is to merge news and events with technical analysis to create a comprehensive summary that provides "
-                    "actionable insights. The summary should be clear, concise, and include an overview of both the fundamental aspects (news) "
-                    "and technical trends of the stock. At the end should be an elaborate, focused overall overview with actionable recommendations based on future news and previous trends "
+                    "As an AI assistant dedicated to supporting traders and investors in their decision-making processes, your primary objective is to synthesize relevant market data by merging current news and events with thorough technical analysis.  "
+                    "Begin by analyzing the latest market news, focusing particularly on economic indicators, press releases, and significant announcements that may influence stock performance. Simultaneously, evaluate technical trends, including price movements, volume patterns, and key indicators (such as moving averages and RSI) for the selected stock. "
+                    "Once you have gathered and analyzed this information, compile a comprehensive summary that is clear and concise. This summary should include a detailed overview of both the fundamental aspects, highlighting impactful news, and the technical trends that characterize the stock's movement."
+                    "Following this, present an elaborate and focused overall assessment that includes actionable recommendations based on anticipated future news and historical trends. "
+                    "In addition to the main summary, create a separate segment that includes insights from various sources such as press releases, investor opinions, First World Pharma, Bloomberg, and Market Watch. Ensure that you properly cite all sources used to enhance credibility and allow for further investigation."
+                    "Structure the output as follows: 1.Introduction: Brief overview of the stock and its relevance in the current market context. 2. News Analysis: Summary of significant news and events affecting the stock."
+                    "3. Technical Analysis: Insights on price movements and relevant technical indicators. 4. Comprehensive Summary: A synthesis of the news and technical analysis, along with actionable recommendations."
+                    "Additional Sources: A separate section listing sources like press releases and opinions from the mentioned platforms, ensuring proper citations."
+                    #Add Press releases, investor oppinions (X), First World Pharma, Bloomberg, Market Watch, seperate segment,add sources, add graphs
+                    
                 ),
             },
             {
@@ -412,6 +326,36 @@ def merge_news_and_technical_analysis_summary(company_name, news_summary, techni
 
 def generate_company_news_message(company_name, time_period):
     # Define the messages for different time periods 
+    def post_to_webhook(data):
+        webhook_url = "https://hook.eu2.make.com/s4xsnimg9v87rrrckcwo88d9k57186q6"
+        if webhook_url:
+    
+            response = requests.post(webhook_url,data)
+            return response
+        else:
+            print("Error")
+
+    data = {"Ticker": company_name, "Time Frame": time_period}
+
+
+    response = post_to_webhook(data)
+    print(response.text)
+
+    time.sleep(65)
+
+    scope = [
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive.file",
+    "https://www.googleapis.com/auth/drive"
+    ]
+
+    credentials = ServiceAccountCredentials.from_json_keyfile_name("C:\\Users\\linco\\OneDrive\\Desktop\\Aescap\\Momentum\\stock-momentum-438620-d28ed2443e1a.json")
+    gc = gspread.authorize(credentials)
+    #gc = gspread.service_account.from_json_keyfile_name(filename="C:\\Users\\linco\\OneDrive\\Desktop\\Aescap\\Momentum\\stock-momentum-438620-d28ed2443e1a.json")
+    sh = gc.open_by_url("https://docs.google.com/spreadsheets/d/1-cDCZDq8r1rGDVYpY_JhQvb0srhqsIiPhGWaxRC1TPw/edit?usp=sharing")
+    previous = sh.sheet1.get('A2')
+    future = sh.sheet1.get('B2')
           
     chats = client.chat.completions.create(
         model="gpt-4o",
@@ -419,11 +363,11 @@ def generate_company_news_message(company_name, time_period):
             {
                 "role": "system",
                 "content": "You are an artificial intelligence assistant, and your role is to "
-                    f"provide the latest news and updates for {company_name} in a detailed, organized, and engaging manner."
+                    f"present the latest news and updates along with the future news and update for {company_name} in a detailed, organized, and engaging manner."
             },
             {
                 "role": "user",
-                "content": f"Can you share the latest news and events of {company_name} over the past {time_period}?"
+                "content": f"Present the news and events aswell {company_name} over the past {time_period} retatining all the Dates aswell as the future news and events: Latest News and Updates text {previous}, Future News and Updates text {future}?"
             },
         ]
     )
@@ -667,50 +611,42 @@ def update_progress(progress_bar, stage, progress, message):
     st.text(message)
     st.empty()
 
-def merge_news_and_technical_analysis_summary(company_name, news_summary, technical_summary):
-    """
-    Combines the news and events summary with the technical analysis summary using OpenAI's GPT model.
-    
-    Parameters:
-    - company_name: The name of the company being analyzed.
-    - news_summary: The summarized news and events information.
-    - technical_summary: The summarized technical analysis output.
 
-    Returns:
-    - An overall summary that integrates both the news and technical analysis in a cohesive manner.
-    """
-    # OpenAI API call to create a merged summary
-    chat_completion = client.chat.completions.create(
-        model="gpt-3.5-turbo",  # Ensure that you use a model available in your OpenAI subscription
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are an AI assistant that helps traders and investors make decisions by analyzing market data. "
-                    "Your goal is to merge news and events with technical analysis to create a comprehensive summary that provides "
-                    "actionable insights. The summary should be clear, concise, and include an overview of both the fundamental aspects (news) "
-                    "and technical trends of the stock."
-                ),
-            },
-            {
-                "role": "user",
-                "content": (
-                    f"Please create a combined summary for the company {company_name} using the following information:\n\n"
-                    f"News and Events Summary:\n{news_summary}\n\n"
-                    f"Technical Analysis Summary:\n{technical_summary}\n\n"
-                    "Merge these details into one cohesive summary, highlighting how the news may impact the stock's technical indicators and providing "
-                    "an overall outlook on the stock's potential future performance."
-                ),
-            },
-        ]
-    )
+def plot_sma(fig, data, row=1, col=1):
+    fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines', name='Close Price', line=dict(color='blue')), row=row, col=col)
+    fig.add_trace(go.Scatter(x=data.index, y=data['SMA_20'], mode='lines', name='SMA 20', line=dict(color='orange', dash='dash')), row=row, col=col)
+    fig.add_trace(go.Scatter(x=data.index, y=data['SMA_50'], mode='lines', name='SMA 50', line=dict(color='red', dash='dash')), row=row, col=col)
+    fig.add_trace(go.Scatter(x=data.index, y=data['SMA_200'], mode='lines', name='SMA 200', line=dict(color='green', dash='dash')), row=row, col=col)
 
-    # Extract and return the AI-generated response
-    response = chat_completion.choices[0].message.content
-    return response
+# Function to plot Bollinger Bands
+def plot_bbands(fig, data, row=1, col=1):
+    fig.add_trace(go.Scatter(x=data.index, y=data['upper_band'], mode='lines', name='Upper Band', line=dict(color='cyan', dash='dot')), row=row, col=col)
+    fig.add_trace(go.Scatter(x=data.index, y=data['middle_band'], mode='lines', name='Middle Band', line=dict(color='magenta', dash='dot')), row=row, col=col)
+    fig.add_trace(go.Scatter(x=data.index, y=data['lower_band'], mode='lines', name='Lower Band', line=dict(color='cyan', dash='dot')), row=row, col=col)
 
+# Function to plot RSI
+def plot_rsi(fig, data, row=2, col=1):
+    fig.add_trace(go.Scatter(x=data.index, y=data['RSI'], mode='lines', name='RSI', line=dict(color='purple')), row=row, col=col)
+    fig.add_hline(y=70, line=dict(color='red', dash='dash'), row=row, col=col)
+    fig.add_hline(y=30, line=dict(color='green', dash='dash'), row=row, col=col)
 
+# Function to plot MACD
+def plot_macd(fig, data, row=3, col=1):
+    fig.add_trace(go.Scatter(x=data.index, y=data['MACD'], mode='lines', name='MACD', line=dict(color='blue')), row=row, col=col)
+    fig.add_trace(go.Scatter(x=data.index, y=data['MACD_signal'], mode='lines', name='MACD Signal', line=dict(color='red')), row=row, col=col)
+    fig.add_trace(go.Bar(x=data.index, y=data['MACD_hist'], name='MACD Histogram', marker_color='gray', opacity=0.5), row=row, col=col)
+
+# Function to plot OBV
+def plot_obv(fig, data, row=4, col=1):
+    fig.add_trace(go.Scatter(x=data.index, y=data['OBV'], mode='lines', name='OBV', line=dict(color='brown')), row=row, col=col)
+
+# Function to plot ADX
+def plot_adx(fig, data, row=4, col=1):
+    fig.add_trace(go.Scatter(x=data.index, y=data['ADX'], mode='lines', name='ADX', line=dict(color='orange')), row=row, col=col)
 
 
 if __name__=="__main__":
     main()
+
+
+
