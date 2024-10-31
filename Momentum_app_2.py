@@ -19,28 +19,39 @@ client = OpenAI(api_key=api_key)
 def main():
 
 # Main application
-    st.title("Stock Market Analysis with Technical Indicators")
-    st.markdown("**Analyze stock trends using advanced technical indicators powered by AI.**")
+    st.set_page_config(page_title="Stock Market Analysis", layout="wide", page_icon="📈")
 
-    # Get user input for ticker symbol
-    ticker = st.text_input("Enter Ticker Name", "", help="Enter the stock ticker symbol, e.g., 'AAPL' for Apple Inc.")
-    company = st.text_input("Enter Full Company Name", "", help="Enter Company Name, e.g., 'Fate' will be 'Fate Therapeutics'.")
-    st.subheader("Select a Timeframe for Analysis")
+    # Sidebar with interactive options
+    with st.sidebar:
+        st.title("Market Analysis Dashboard")
+        st.markdown("Analyze stock trends using advanced technical indicators powered by AI.")
+        
+        # Ticker Input
+        ticker = st.text_input(" Enter Ticker Symbol", "", help="Example: 'AAPL' for Apple Inc.")
+        company = st.text_input(" Enter Full Company Name", "", help="Example: 'Apple Inc.'")
+        
+        # Timeframe Selection
+        st.subheader("Select Timeframe for Analysis")
+        timeframe = st.radio(
+            "Choose timeframe:",
+            ("1 Month", "3 Months", "6 Months", "1 Year"),
+            index=3,
+            help="Select the period of historical data for the stock analysis"
+        )
+        
+        # Analysis Type Selection
+        st.subheader("Analysis Options")
+        technical_analysis = st.checkbox("Technical Analysis", help="Select to run technical analysis indicators")
+        news_and_events = st.checkbox("News and Events", help="Get recent news and event analysis for the company")
+        
+        # Run Button with styled alert text
+        run_button = st.button("Run Analysis")
+        st.markdown("---")
+        st.info("Click 'Run Analysis' after selecting options to start.")
 
-    timeframe = st.radio(
-        "Select Timeframe:",
-        ("1 Month", "3 Months", "6 Months", "1 Year"),
-        horizontal=True
-    )
-
-    st.write("You selected:", timeframe)
-
-    st.subheader("Select Analysis Type:")
-    
-    technical_analysis = st.checkbox("Technical Analysis")
-    news_and_events = st.checkbox("News and Events")
-
-    run_button = st.button("Run Analysis")
+    # Main content section
+    st.title("Stock Market Analysis with AI-Powered Insights")
+    st.markdown("**Gain actionable insights into stock trends with advanced indicators and AI interpretations.**")
 
     progress_bar = st.progress(0)
     status_text = st.empty()
@@ -55,11 +66,13 @@ def main():
             data = yf.download(ticker, period="6mo")
         elif timeframe == "1 Year":
             data = yf.download(ticker, period="1y")  # Check if the "Run" button is pressed
-
+        
+        if not technical_analysis and not news_and_events:
+            st.warning("Please select at least one analysis type to proceed.")
         if data.empty:
-                st.warning(f"No data available for {ticker}. Please check the ticker symbol and try again.")
+            st.warning(f"No data available for {ticker}. Please check the ticker symbol and try again.")
         if not company:
-                st.warning(f" Please add Name of company.")
+            st.warning(f" Please add Name of company.")
         else:
             with st.expander("Downloading Data"):
                 st.write(f"Analyzing data for the selected timeframe: {timeframe}")
@@ -165,6 +178,7 @@ def main():
                 summary = SUMMARY(ticker, bd_result, sma_result, rsi_result, macd_result, obv_result, adx_result)
                 txt_summary = generate_company_news_message(company, timeframe)
                 txt_summary = format_news(txt_summary)
+                txt_ovr = txt_conclusion(txt_summary,company)
                 ovr_summary = merge_news_and_technical_analysis_summary(company,txt_summary,summary,timeframe)
                 update_progress(progress_bar, 100, 100, "Analysis complete!")
 
@@ -209,7 +223,6 @@ def main():
                         st.plotly_chart(fig_adx)
                         st.write(adx_result)  # Display ADX result or interpretation
 
-
                 if st.button("Run Another Stock"):
                     analysis_complete = False
                     st.session_state.technical_analysis = False
@@ -224,6 +237,7 @@ def main():
                         
                 st.subheader(f"News and Events Analysis for {ticker} over the past {timeframe}")
                 st.write(txt_summary)
+                st.write(txt_ovr)
 
                 if st.button("Run Another Stock"):
                     analysis_complete = False
@@ -240,6 +254,7 @@ def main():
                 st.write(txt_summary)
                 st.subheader("Technical Analysis Summary")
                 st.write(summary)
+                st.subheader("Overall Summary")
                 st.write(ovr_summary)
                 st.subheader("Detailed Technical Analysis")
 
@@ -279,7 +294,6 @@ def main():
                         st.plotly_chart(fig_adx)
                         st.write(adx_result)  # Display ADX result or interpretation
 
-
                 if st.button("Run Another Stock"):
                     analysis_complete = False
                     st.session_state.technical_analysis = False
@@ -290,15 +304,53 @@ def main():
                     st.session_state["1_year"] = False
                     st.experimental_rerun()     
                      
-            else:
-                st.warning("Please select at least one analysis type to proceed.")
+            
 
     #if t_col1.button("Technical Analysis"):
         #analysis_type = "Technical Analysis"
     #elif n_col2.button("News and Events"):
         #analysis_type = "News and Events"
 
-    
+def txt_conclusion(news_summary,company_name):
+    # OpenAI API call to create a merged summary
+    chat_completion = client.chat.completions.create(
+        model="gpt-4o",  # Ensure that you use a model available in your OpenAI subscription
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are an AI model specializing in investment insights, tasked with analyzing recent news and events about a specified company and providing recommendations for investors. Your goal is to review relevant data, including press releases, market trends, earnings reports, and industry events, to assess the companys financial health, growth prospects, and potential risks. From this data, you will determine an ideal investor position (e.g., buy, hold, or sell)."
+                    "Instructions:"
+                    "Data Collection: Search for and analyze recent press releases, earnings reports, regulatory filings, and news articles regarding the specified company. Focus on the following:"
+                    "Financial Performance: Look for quarterly or annual earnings, revenue, and profit trends."
+                    "Product & Service Developments: Identify any new product launches, service expansions, or market innovations."
+                    "Management Statements: Note key statements from executives or significant personnel changes that might impact the companys direction."
+                    "Industry Events & Competitor Actions: Examine news of industry-wide developments, competitor performance, and market conditions."
+                    "Regulatory & Legal News: Assess any legal challenges, regulatory updates, or policy changes impacting the company."
+                    "Sentiment Analysis: Evaluate the tone and sentiment of the news data—whether positive, neutral, or negative. Gauge investor confidence and sentiment trends as reflected in the media."
+                    "Market Impact: Summarize any immediate or anticipated effects of recent events on the companys stock price, including short-term volatility, potential growth indicators, or risk factors that could affect long-term performance."
+                    "Investor Recommendation:"
+                    "Buy: Recommend if positive news, strong financial performance, and promising growth potential outweigh risks."
+                    "Hold: Suggest if there are mixed indicators, with potential growth tempered by risks or uncertain factors."
+                    "Sell: Advise if significant risks, declining performance, or negative news dominate, suggesting potential for downturn."
+                    "Final Conclusion: Provide a clear summary and reasoning behind the recommended position, addressing key data points and highlighting the rationale for an investor's action."
+                    "Additional Sources: A separate section listing sources like press releases and opinions from the mentioned platforms, ensuring proper citations."
+                    #Add Press releases, investor oppinions (X), First World Pharma, Bloomberg, Market Watch, seperate segment,add sources, add graphs
+                    
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"News and Events Summary for {company_name}:\n{news_summary}\n\n"   
+                ),
+            },
+        ]
+    )
+
+    # Extract and return the AI-generated response
+    response = chat_completion.choices[0].message.content
+    return response 
 
     
 
@@ -376,21 +428,8 @@ def generate_company_news_message(company_name, time_period):
     "https://www.googleapis.com/auth/drive"
     ]
 
-    credentials_dict = {
-        "type": st.secrets["google_credentials"]["type"],
-        "project_id": st.secrets["google_credentials"]["project_id"],
-        "private_key_id": st.secrets["google_credentials"]["private_key_id"],
-        "private_key": st.secrets["google_credentials"]["private_key"].replace("\\n", "\n"),
-        "client_email": st.secrets["google_credentials"]["client_email"],
-        "client_id": st.secrets["google_credentials"]["client_id"],
-        "auth_uri": st.secrets["google_credentials"]["auth_uri"],
-        "token_uri": st.secrets["google_credentials"]["token_uri"],
-        "auth_provider_x509_cert_url": st.secrets["google_credentials"]["auth_provider_x509_cert_url"],
-        "client_x509_cert_url": st.secrets["google_credentials"]["client_x509_cert_url"],
-        "universe_domain": st.secrets["google_credentials"]["universe_domain"]
-    }
 
-    credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, ["https://www.googleapis.com/auth/spreadsheets"])
+    credentials = ServiceAccountCredentials.from_json_keyfile_name("C:\\Users\\linco\\OneDrive\\Desktop\\Aescap\\Momentum\\stock-momentum-438620-d28ed2443e1a.json")
     gc = gspread.authorize(credentials)
     #gc = gspread.service_account.from_json_keyfile_name(filename="C:\\Users\\linco\\OneDrive\\Desktop\\Aescap\\Momentum\\stock-momentum-438620-d28ed2443e1a.json")
     sh = gc.open_by_url("https://docs.google.com/spreadsheets/d/1-cDCZDq8r1rGDVYpY_JhQvb0srhqsIiPhGWaxRC1TPw/edit?usp=sharing")
@@ -645,13 +684,6 @@ def SUMMARY(company_name,BD,SMA,RSI,MACD,OBV,ADX):
     response = chat_completion.choices[0].message.content
     return response
 
-
-def update_progress(progress_bar, stage, progress, message):
-    progress_bar.progress(progress)
-    st.text(message)
-    st.empty()
-
-
 def format_news(txt_summary):
     chat_completion = client.chat.completions.create(
         model="gpt-4o",
@@ -659,13 +691,28 @@ def format_news(txt_summary):
             # System message to define the assistant's behavior
             {
                 "role": "system",
-                "content":"You are an expert in formatting text. Only output the output text "
+                "content":"You are an expert in formatting text for clarity and professional presentation. Your task is to prepare a well-organized, easy-to-read document summarizing recent events in font size 12 with attention to layout consistency. Follow these instructions:"
+                "Text Formatting:"
+                "Use font size 12 consistently across all text for readability."
+                "Begin each entry with the Date and Event Title in bold to highlight key information upfront."
+                "Event Description Structure:"
+                "Organize each event entry in a structured format:"
+                "Date: Bolded, immediately followed by the Event Title in bold on the same line."
+                "Overview: Provide a concise summary of the event, outlining its main points."
+                "Impact: Discuss potential implications or significance, especially regarding market"
+                "Example Entry Format:"
+                "[Date: October 15, 2024]"
+                "[Event Title: Q3 Earnings Release]"
+                "Overview: The company reported a strong year-over-year increase in Q3 revenue, primarily due to heightened demand in its core market."
+                "Impact: Analysts predict this trend may lead to a stock price increase, as revenue growth outpaces industry averages."
+                "Source: Company press release, MarketWatch article."
+
                 
             },
             # User message with a prompt requesting stock analysis for a specific company
             {
                 "role": "user",
-                "content": f"Please format the following {txt_summary} to ensure it is in font size 12. Make the [Date] and [Event Title] bold, and ensure that each event description is well-organized and easy to read."
+                "content": f"text to format {txt_summary}"
                 
             },
         ]
@@ -725,8 +772,12 @@ def plot_adx(data):
     fig.add_trace(go.Scatter(x=data.index, y=data['ADX'], mode='lines', name='ADX', line=dict(color='orange')))
     return fig
 
+
 if __name__=="__main__":
     main()
+
+
+
 
 
 
