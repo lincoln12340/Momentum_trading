@@ -8,6 +8,8 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
+import tempfile
+import os 
 
 
 api_key = st.secrets["auth_token"]
@@ -43,6 +45,11 @@ def main():
         st.subheader("Analysis Options")
         technical_analysis = st.checkbox("Technical Analysis", help="Select to run technical analysis indicators")
         news_and_events = st.checkbox("News and Events", help="Get recent news and event analysis for the company")
+        fundamental_analysis = st.checkbox("Fundamental Analysis", help="Select to upload a file for fundamental analysis")
+
+        uploaded_file = None
+        if fundamental_analysis:
+            uploaded_file = st.file_uploader("Upload a PDF file for Fundamental Analysis", type="pdf")
         
         # Run Button with styled alert text
         run_button = st.button("Run Analysis")
@@ -67,13 +74,15 @@ def main():
         elif timeframe == "1 Year":
             data = yf.download(ticker, period="1y")  # Check if the "Run" button is pressed
         
-        if not technical_analysis and not news_and_events:
+      
+        
+        if not technical_analysis and not news_and_events and not fundamental_analysis:
             st.warning("Please select at least one analysis type to proceed.")
         if data.empty:
             st.warning(f"No data available for {ticker}. Please check the ticker symbol and try again.")
         if not company:
             st.warning(f" Please add Name of company.")
-        else:
+        elif technical_analysis:
             with st.expander("Downloading Data"):
                 st.write(f"Analyzing data for the selected timeframe: {timeframe}")
                 st.write("Performing Technical Analysis...")       # Check if data is empty
@@ -139,6 +148,26 @@ def main():
                     
                 else:
                     update_progress(progress_bar, 30, 30, "Bollinger Bands are not available...")
+                
+                data = data.resample('W').agg({
+                    'Open': 'first',
+                    'High': 'max',
+                    'Low': 'min',
+                    'Close': 'last',
+                    'Volume': 'sum',
+                    'SMA_20': 'last',
+                    'SMA_50': 'last',
+                    'SMA_200': 'last',
+                    'RSI': 'last',
+                    'MACD': 'last',
+                    'MACD_signal': 'last',
+                    'MACD_hist': 'last',
+                    'OBV': 'last',
+                    'ADX': 'last',
+                    'upper_band': 'last',
+                    'middle_band': 'last',
+                    'lower_band': 'last'
+                })
 
                             # Prepare data for each technical indicator
                 recent_data = data
@@ -152,6 +181,8 @@ def main():
 
                 obv_markdown = recent_data[["Open", "High", "Low", "Close", "Volume", "OBV"]].to_markdown()
                 adx_markdown = recent_data[["Open", "High", "Low", "Close", "ADX"]].to_markdown()
+
+
 
                 update_progress(progress_bar, 60, 60, "Preparing data for AI analysis...")
 
@@ -173,16 +204,11 @@ def main():
                 update_progress(progress_bar, 90, 90, "ADX Analysis...")
                 adx_result = ADX(ticker, adx_markdown)
                 update_progress(progress_bar, 95, 95, "Analyzing...")
-
-                # Get summary
-                summary = SUMMARY(ticker, bd_result, sma_result, rsi_result, macd_result, obv_result, adx_result)
-                txt_summary = generate_company_news_message(company, timeframe)
-                txt_summary = format_news(txt_summary)
-                txt_ovr = txt_conclusion(txt_summary,company)
-                ovr_summary = merge_news_and_technical_analysis_summary(company,txt_summary,summary,timeframe)
+                # Get summar
                 update_progress(progress_bar, 100, 100, "Analysis complete!")
 
-            if technical_analysis and not news_and_events:
+            if technical_analysis and not news_and_events and not fundamental_analysis:
+                summary = SUMMARY(ticker, bd_result, sma_result, rsi_result, macd_result, obv_result, adx_result)
                 st.subheader(f"Summary for {ticker}")
                 st.write(summary)
 
@@ -233,7 +259,10 @@ def main():
                     st.session_state["1_year"] = False
                     st.experimental_rerun() 
 
-            if news_and_events and not technical_analysis:
+            if news_and_events and not technical_analysis and fundamental_analysis:
+                txt_summary = generate_company_news_message(company, timeframe)
+                txt_summary = format_news(txt_summary)
+                txt_ovr = txt_conclusion(txt_summary,company)
                         
                 st.subheader(f"News and Events Analysis for {ticker} over the past {timeframe}")
                 st.write(txt_summary)
@@ -249,7 +278,13 @@ def main():
                     st.session_state["1_year"] = False
                     st.experimental_rerun()
 
-            if news_and_events and technical_analysis:
+            if news_and_events and technical_analysis and not fundamental_analysis:
+                summary = SUMMARY(ticker, bd_result, sma_result, rsi_result, macd_result, obv_result, adx_result)
+                txt_summary = generate_company_news_message(company, timeframe)
+                txt_summary = format_news(txt_summary)
+                txt_ovr = txt_conclusion(txt_summary,company)
+                ovr_summary = merge_news_and_technical_analysis_summary(company,txt_summary,summary,timeframe)
+
                 st.subheader(f"News and Events Analysis and Technical Analysis for {ticker} over the past {timeframe}")
                 st.write(txt_summary)
                 st.subheader("Technical Analysis Summary")
@@ -302,14 +337,181 @@ def main():
                     st.session_state["3_months"] = False
                     st.session_state["6_months"] = False
                     st.session_state["1_year"] = False
-                    st.experimental_rerun()     
-                     
+                    st.experimental_rerun()    
+            if fundamental_analysis and not technical_analysis and not news_and_events: 
+                file_content = uploaded_file
+                file_name = uploaded_file.name
+                fa_summary = FUNDAMENTAL_ANALYSIS(file_content, company, file_name)
+                st.subheader(f"Fundamental Analysis for {ticker} over the past {timeframe}")
+                st.write(fa_summary)
             
+            if fundamental_analysis and technical_analysis and not news_and_events:
 
-    #if t_col1.button("Technical Analysis"):
-        #analysis_type = "Technical Analysis"
-    #elif n_col2.button("News and Events"):
-        #analysis_type = "News and Events"
+                file_content = uploaded_file
+                file_name = uploaded_file.name
+                fa_summary = FUNDAMENTAL_ANALYSIS(file_content, company, file_name)
+                summary = SUMMARY(ticker, bd_result, sma_result, rsi_result, macd_result, obv_result, adx_result)
+                fa_ta_summary = merge_ta_fa_summary(fa_summary,summary)
+                #st.subheader(f"Fundamental Analysis and Technical Analysis for {ticker} over the past {timeframe}")
+                st.write(fa_ta_summary)
+
+
+            if fundamental_analysis and news_and_events and not news_and_events: 
+                txt_summary = generate_company_news_message(company, timeframe)
+                txt_summary = format_news(txt_summary)
+                txt_ovr = txt_conclusion(txt_summary,company)
+                ovr_summary = merge_news_and_technical_analysis_summary(company,txt_summary,summary,timeframe)
+
+                file_content = uploaded_file
+                file_name = uploaded_file.name
+                fa_summary = FUNDAMENTAL_ANALYSIS(file_content, company, file_name)
+
+                fa_txt_summary = fa_summary_and_news_summary(fa_summary,ovr_summary)
+                st.write(fa_txt_summary)
+
+
+
+
+
+def fa_summary_and_news_summary(fa_summary, txt_summary):
+
+           
+    chat_completion = client.chat.completions.create(
+        model="gpt-4o",  # Ensure that you use a model available in your OpenAI subscription
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are an AI model trained to create a comprehensive investment report by integrating recent news and events data with fundamental analysis. Your role is to merge insights from an asset's financial health with the impact of current developments to produce a well-rounded assessment and actionable recommendations. Use the following format and guidelines to structure your response:"
+                    "\n\n"
+                    "Formatting Requirements:\n"
+                    "- **Headings and Subheadings**: Organize the report with clear headings (e.g., “Fundamental Analysis Summary,” “Recent News and Events,” “Investment Insights”).\n"
+                    "- **Consistent Formatting**: Bold critical metrics and key event names (e.g., **Revenue Growth**, **Product Launch**), and use italics for qualitative insights (*e.g., regulatory implications*, *market sentiment*).\n"
+                    "- **Bullet Points and Numbered Lists**: Use bullet points for lists of events and data points, and numbered lists for any recommended steps or prioritized actions.\n\n"
+                    
+                    "Structure Guidelines:\n"
+                    "1. **Introduction**:\n"
+                    "   - Briefly summarize the asset, its industry context, and the relevance of both fundamental analysis and recent events.\n"
+                    "   - State the objective: to integrate fundamental performance with recent news for a complete perspective on the asset's investment potential.\n\n"
+
+                    "2. **Fundamental Analysis Summary**:\n"
+                    "   - **Financial Performance**: Summarize key financial metrics (e.g., revenue growth, net income) reflecting the asset’s stability.\n"
+                    "   - **Valuation Metrics**: Include metrics like Price-to-Earnings (P/E) ratio, Price-to-Book (P/B) ratio, Dividend Yield, with industry comparisons.\n"
+                    "   - **Market Position and Competitive Standing**: Outline the asset’s market position, competitive strengths, and a brief SWOT summary.\n"
+                    "   - **Key Takeaways**: Summarize the overall financial health and growth outlook.\n\n"
+
+                    "3. **Recent News and Events Summary**:\n"
+                    "   - **Recent Developments**: Summarize major events impacting the asset (e.g., product launches, regulatory changes).\n"
+                    "   - **Market Sentiment and Impact**: Describe how each event has affected market sentiment, whether positively or negatively.\n"
+                    "   - **Macro and Industry-Level News**: Include any broader economic or industry-specific developments relevant to the asset.\n"
+                    "   - **Key Takeaways**: Highlight the potential influence of recent events on the asset’s outlook.\n\n"
+
+                    "4. **Integrated Investment Insights**:\n"
+                    "   - **Alignment of Fundamentals with Recent Events**: Describe how recent events support or challenge the asset’s fundamental outlook.\n"
+                    "   - **Market Sentiment vs. Intrinsic Value**: Evaluate the alignment of current sentiment with the asset’s intrinsic value.\n"
+                    "   - **Risk Factors**: Identify any risks that recent events may introduce, such as regulatory risks or changes in competitive positioning.\n\n"
+
+                    "5. **Actionable Recommendations**:\n"
+                    "   - **Investment Decision**: Provide a recommendation (Buy, Hold, Sell), considering both fundamental and recent event insights.\n"
+                    "   - **Entry and Exit Points**: Suggest entry/exit levels based on news and valuation metrics.\n"
+                    "   - **Risk Management and Monitoring**: Recommend any risk management strategies and important future events or updates to track.\n\n"
+
+                    "Style Requirements:\n"
+                    "- Maintain a professional, data-driven tone without personal opinions.\n"
+                    "- Minimize jargon, and briefly clarify terms where necessary.\n"
+                    "- Keep sentences and paragraphs clear and concise to maintain logical flow and readability."
+                    
+                    "Using these instructions, deliver a concise, actionable report combining news, events, and fundamental analysis for strategic investment decision-making."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"From and merge these texts, Recent News and Events: {txt_summary} and Fundamental Analysis: {fa_summary}"
+                ),
+            },
+        ]
+    )
+
+
+
+                
+
+
+                
+                
+
+
+
+def merge_ta_fa_summary(fa_summary,ta_summary):
+
+    chat_completion = client.chat.completions.create(
+        model="gpt-4o",  # Ensure that you use a model available in your OpenAI subscription
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are an AI model designed to provide comprehensive, long-term investment analysis by merging fundamental and technical analysis. Your role is to combine insights from financial health, competitive positioning, and market trends with technical indicators to deliver actionable, data-driven recommendations tailored for long-term investment strategies. Use the following structure and formatting guidelines to provide a detailed and practical report:"
+                    "Formatting Requirements:"
+                    "Organized Headings and Subheadings: Use clear headings and subheadings to separate sections (e.g., “Long-Term Financial Overview,” “Technical Indicators for Trend Analysis,” “Long-Term Investment Recommendations”)."
+                    "Bullet Points and Numbered Lists: Use bullet points for lists and numbered lists for prioritized or sequential steps, especially in recommendation sections."
+                    "Formatting for Key Metrics and Indicators:"
+                    "Bold critical financial terms and technical indicators (e.g., Net Profit Margin, Relative Strength Index (RSI))."
+                    "Use italics for qualitative insights (e.g., market trends, strategic risks)."
+                    "Data Presentation: Use tables or charts to compare financial metrics over time and to track changes in technical indicators, where appropriate, for easy reference."
+                    "Structure Guidelines:"
+                    "Introduction:"
+                    "Briefly summarize the asset’s profile, market sector, and relevance for long-term investors."
+                    "Highlight the objective of integrating fundamental strength with technical trend analysis to support long-term holding decisions."
+                    "Fundamental Analysis:"
+                    "Financial Performance and Stability: Examine key financial statements (income statement, balance sheet, and cash flow) to evaluate profitability, solvency, and growth. Focus on metrics that support stability, such as revenue growth, earnings stability, and debt management.Valuation Metrics: Highlight ratios relevant to long-term value (e.g., Price-to-Earnings (P/E), Price-to-Book (P/B), and Dividend Yield) and compare them to industry averages."
+                    "Competitive Position and Market Standing: Assess the asset’s market share, competitive advantages, and potential risks. Include a SWOT analysis to illustrate long-term growth drivers and potential challenges."
+                    "Technical Analysis for Long-Term Trend:"
+                    "Key Indicators for Long-Term Trends:"
+                    "MACD (Moving Average Convergence Divergence): Examine long-term trends by focusing on signal line crossovers and divergence from the price to identify trend strength."
+                    "ADX (Average Directional Index): Use ADX to measure trend strength (with readings above 20 typically indicating a strong trend). Specify whether a strong uptrend or downtrend is evident."
+                    "On-Balance Volume (OBV): Analyze OBV to determine if volume trends align with price trends, confirming potential long-term price direction."
+                    "Bollinger Bands: Use Bollinger Bands to identify volatility and potential entry points when the price approaches the upper or lower bands over longer timeframes."
+                    "Relative Strength Index (RSI): Focus on RSI values over extended periods to determine if the asset is overbought or oversold, guiding long-term entry or exit points."
+                    "Simple Moving Averages (SMA) (e.g., 50-day, 200-day): Track crossovers between SMAs to identify long-term bullish or bearish trends (e.g., a “golden cross” when the 50-day SMA rises above the 200-day SMA)."
+                    "Integrated Analysis:"
+
+                    "Correlation of Fundamental Strength with Technical Trends: Discuss how the asset’s intrinsic value and financial health align with its technical trend, focusing on consistency or divergence between long-term value indicators and current market trends."
+                    "Market Sentiment and Timing Implications: Summarize how technical signals (e.g., RSI, ADX, MACD) align with long-term valuation and growth potential. Highlight any discrepancies between market sentiment and intrinsic value for timing entry points."
+                    "Long-Term Actionable Recommendations:"
+                    "Investment Decision: Clearly state a Buy, Hold, or Sell recommendation, backed by fundamental and technical indicators. For example, if financial metrics are strong and technical indicators signal a bullish trend, recommend a Buy with specific reasons."
+                    "Entry and Exit Points: Identify ideal entry points based on long-term technical indicators (e.g., price touching lower Bollinger Band in an uptrend or RSI below 30 in a fundamentally strong asset)."
+                    "Risk Management Strategies: Outline risk mitigation techniques suitable for long-term investors, such as setting a stop-loss level based on SMA trends or diversifying within the sector to reduce exposure."
+                    "Performance Monitoring for Long-Term: List key fundamental updates (e.g., quarterly earnings) and technical indicators (e.g., changes in ADX, MACD crossovers) to monitor periodically for alignment with the long-term outlook."
+                    "Style Requirements:"
+                    "Maintain a professional, analytical tone, avoiding personal opinions."
+                    "Minimize jargon, explaining technical terms in plain language where necessary for clarity."
+                    "Keep sentences and paragraphs concise, ensuring the report remains readable and logically structured for a long-term investment context."
+                    "Using these instructions, you will deliver a detailed, actionable report that enables readers to make well-informed, strategic investment decisions based on an integrated approach to fundamental and technical analysis."
+                                        #Add Press releases, investor oppinions (X), First World Pharma, Bloomberg, Market Watch, seperate segment,add sources, add graphs
+                    
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"From and merge these texts, Technical Analysis: {ta_summary} and Fundamental Analysis: {fa_summary}"
+                ),
+            },
+        ]
+    )
+
+    # Extract and return the AI-generated response
+    response = chat_completion.choices[0].message.content
+    return response
+
+                        
+                
+
+        #if t_col1.button("Technical Analysis"):
+            #analysis_type = "Technical Analysis"
+        #elif n_col2.button("News and Events"):
+            #analysis_type = "News and Events"
 
 def txt_conclusion(news_summary,company_name):
     # OpenAI API call to create a merged summary
@@ -348,7 +550,7 @@ def txt_conclusion(news_summary,company_name):
         ]
     )
 
-    # Extract and return the AI-generated response
+# Extract and return the AI-generated response
     response = chat_completion.choices[0].message.content
     return response 
 
@@ -645,7 +847,107 @@ def ADX(company_name,data_text):
     response = chat_completion.choices[0].message.content
     return response
 
+def FUNDAMENTAL_ANALYSIS(file_name, company_name, file):
+
+    temp_file_path = os.path.join(tempfile.gettempdir(), file)
+
+# Write the contents to the temporary file
+    with open(temp_file_path, 'wb') as temp_file:
+        temp_file.write(file_name.read())
+    
+    message_file = client.files.create(
+    file=open(temp_file_path, "rb"), purpose="assistants"
+    )
+
+    file_id = message_file.id
+
+
+    data = {"File_id": file_id, "Company Name": company_name, "File_name": file}
+
+    webhook_url = "https://hook.eu2.make.com/d68cwl3ujkpqmgrnbpgy9mx3d06vs198"
+    if webhook_url:
+        response = requests.post(webhook_url,data)
+    else: 
+        print("Error")
+
+    time.sleep(65)
+
+    credentials = ServiceAccountCredentials.from_json_keyfile_name("C:\\Users\\linco\\OneDrive\\Desktop\\Aescap\\Momentum\\stock-momentum-438620-d28ed2443e1a.json")
+    gc = gspread.authorize(credentials)
+    #gc = gspread.service_account.from_json_keyfile_name(filename="C:\\Users\\linco\\OneDrive\\Desktop\\Aescap\\Momentum\\stock-momentum-438620-d28ed2443e1a.json")
+    sh = gc.open_by_url("https://docs.google.com/spreadsheets/d/1-cDCZDq8r1rGDVYpY_JhQvb0srhqsIiPhGWaxRC1TPw/edit?usp=sharing")
+    anaylsis = sh.sheet1.get('C2')
+
+    chat_completion = client.chat.completions.create(
+        model="gpt-4o",  # Ensure that you use a model available in your OpenAI subscription
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are an AI model trained to format text for fundamental analysis of financial assets, with a focus on providing actionable recommendations. Your role is to structure content in a clear, logical, and standardized manner, organizing financial, operational, and strategic insights and concluding with practical recommendations. Your output should adhere to the following format:"
+                    "Formatting Requirements:"
+                    "Headings and Subheadings: Organize the analysis with concise, descriptive headings (e.g., “Financial Overview,” “Competitive Analysis,” “Investment Recommendations”)."
+                    "Bullet Points and Numbered Lists: Use bullet points for concise lists of information and numbered lists for sequential steps or prioritized actions. This enhances readability, particularly in sections with extensive data."
+                    "Consistent Formatting for Key Metrics:"
+                    "Bold critical financial terms and ratios (e.g., Earnings Per Share (EPS), Price-to-Earnings Ratio (P/E))."
+                    "Use italics for notable qualitative insights (e.g., industry trends, management stability)."
+                    "Data Presentation: Where relevant, present numerical data in tables for easy comparison of metrics over time or against competitors. Include year-over-year changes to highlight trends in revenue, earnings, and key ratios."
+                    "Structure Guidelines:"
+                    "Introduction: Provide a concise overview of the asset, including industry context and the primary purpose of the analysis."
+                    "Financial Analysis:"
+                    "Income Statement: Summarize trends in revenue, cost of goods sold, operating income, and net income. Point out significant changes or growth patterns."
+                    "Balance Sheet: Summarize assets, liabilities, and equity, focusing on liquidity and leverage metrics."
+                    "Cash Flow Statement: Highlight cash flow from operating, investing, and financing activities, emphasizing cash generation capability and any unusual patterns."
+                    "Key Ratios and Metrics:"
+                    "Profitability Ratios (e.g., Gross Margin, Return on Assets)."
+                    "Liquidity Ratios (e.g., Current Ratio, Quick Ratio)."
+                    "Leverage Ratios (e.g., Debt-to-Equity Ratio)."
+                    "Valuation Ratios (e.g., Price-to-Earnings Ratio, Price-to-Book Ratio)."
+                    "Competitive Positioning and Market Analysis:"
+                    "Provide an overview of the asset’s competitive position, market share, and primary competitors."
+                    "Summarize industry trends and conduct a strengths, weaknesses, opportunities, and threats (SWOT) analysis to give context to the assets strategic position."
+                    "Management and Governance:"
+                    "Describe the executive team and board structure, noting experience, past performance, and any recent changes."
+                    "Mention recent strategic decisions (e.g., acquisitions, new product lines) impacting performance."
+                    "Conclusion and Outlook:"
+                    "Offer a concise summary of the asset's strengths and potential risks based on financial and strategic positioning."
+                    "Provide an outlook considering financial stability, industry conditions, and management’s strategic direction."
+                    "Actionable Recommendations:"
+                    "Investment Recommendation: Clearly state whether to Buy, Hold, or Sell the asset based on the findings. Justify this decision with reference to valuation metrics, market conditions, or management actions."
+                    "Risk Management Suggestions: Outline potential risk mitigation strategies (e.g., sector diversification, stop-loss orders)."
+                    "Strategic Suggestions for Management: If relevant, suggest strategic actions for the company itself, such as exploring new markets, reducing debt, or optimizing operational costs."
+                    "Performance Monitoring Tips: Recommend specific metrics or events (e.g., quarterly earnings, regulatory updates) that investors should watch to evaluate ongoing asset performance."
+                    "Style Requirements:"
+                    "Maintain a professional, objective tone focused on analysis without personal opinions."
+                    "Avoid excessive jargon, opting for straightforward explanations where necessary."
+                    "Keep sentences and paragraphs clear and direct, ensuring the reader can easily follow your logic and conclusions."
+                    "Following these guidelines will ensure that your output is professional, data-driven, and actionable, providing readers with clear insights and practical next steps for informed decision-making."
+                    
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"fromat this text {anaylsis}"   
+                ),
+            },
+        ]
+    )
+
+    # Extract and return the AI-generated response
+    response = chat_completion.choices[0].message.content
+    return response 
+    
+   
+
+    
+    
+
 def SUMMARY(company_name,BD,SMA,RSI,MACD,OBV,ADX):
+
+    
+
+    
     
     chat_completion = client.chat.completions.create(
         model="gpt-4o",
@@ -775,6 +1077,9 @@ def plot_adx(data):
 
 if __name__=="__main__":
     main()
+
+
+
 
 
 
