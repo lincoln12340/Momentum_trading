@@ -630,7 +630,7 @@ def generate_company_news_message(company_name, time_period):
     "https://www.googleapis.com/auth/drive"
     ]
 
-     credentials_dict = {
+    credentials_dict = {
         "type": st.secrets["google_credentials"]["type"],
         "project_id": st.secrets["google_credentials"]["project_id"],
         "private_key_id": st.secrets["google_credentials"]["private_key_id"],
