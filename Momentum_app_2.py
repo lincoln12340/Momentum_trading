@@ -630,8 +630,21 @@ def generate_company_news_message(company_name, time_period):
     "https://www.googleapis.com/auth/drive"
     ]
 
+     credentials_dict = {
+        "type": st.secrets["google_credentials"]["type"],
+        "project_id": st.secrets["google_credentials"]["project_id"],
+        "private_key_id": st.secrets["google_credentials"]["private_key_id"],
+        "private_key": st.secrets["google_credentials"]["private_key"].replace("\\n", "\n"),
+        "client_email": st.secrets["google_credentials"]["client_email"],
+        "client_id": st.secrets["google_credentials"]["client_id"],
+        "auth_uri": st.secrets["google_credentials"]["auth_uri"],
+        "token_uri": st.secrets["google_credentials"]["token_uri"],
+        "auth_provider_x509_cert_url": st.secrets["google_credentials"]["auth_provider_x509_cert_url"],
+        "client_x509_cert_url": st.secrets["google_credentials"]["client_x509_cert_url"],
+        "universe_domain": st.secrets["google_credentials"]["universe_domain"]
+    }
+    credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, ["https://www.googleapis.com/auth/spreadsheets"])
 
-    credentials = ServiceAccountCredentials.from_json_keyfile_name("C:\\Users\\linco\\OneDrive\\Desktop\\Aescap\\Momentum\\stock-momentum-438620-d28ed2443e1a.json")
     gc = gspread.authorize(credentials)
     #gc = gspread.service_account.from_json_keyfile_name(filename="C:\\Users\\linco\\OneDrive\\Desktop\\Aescap\\Momentum\\stock-momentum-438620-d28ed2443e1a.json")
     sh = gc.open_by_url("https://docs.google.com/spreadsheets/d/1-cDCZDq8r1rGDVYpY_JhQvb0srhqsIiPhGWaxRC1TPw/edit?usp=sharing")
@@ -871,8 +884,22 @@ def FUNDAMENTAL_ANALYSIS(file_name, company_name, file):
         print("Error")
 
     time.sleep(65)
+    
+     credentials_dict = {
+        "type": st.secrets["google_credentials"]["type"],
+        "project_id": st.secrets["google_credentials"]["project_id"],
+        "private_key_id": st.secrets["google_credentials"]["private_key_id"],
+        "private_key": st.secrets["google_credentials"]["private_key"].replace("\\n", "\n"),
+        "client_email": st.secrets["google_credentials"]["client_email"],
+        "client_id": st.secrets["google_credentials"]["client_id"],
+        "auth_uri": st.secrets["google_credentials"]["auth_uri"],
+        "token_uri": st.secrets["google_credentials"]["token_uri"],
+        "auth_provider_x509_cert_url": st.secrets["google_credentials"]["auth_provider_x509_cert_url"],
+        "client_x509_cert_url": st.secrets["google_credentials"]["client_x509_cert_url"],
+        "universe_domain": st.secrets["google_credentials"]["universe_domain"]
+    }
+    credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, ["https://www.googleapis.com/auth/spreadsheets"])
 
-    credentials = ServiceAccountCredentials.from_json_keyfile_name("C:\\Users\\linco\\OneDrive\\Desktop\\Aescap\\Momentum\\stock-momentum-438620-d28ed2443e1a.json")
     gc = gspread.authorize(credentials)
     #gc = gspread.service_account.from_json_keyfile_name(filename="C:\\Users\\linco\\OneDrive\\Desktop\\Aescap\\Momentum\\stock-momentum-438620-d28ed2443e1a.json")
     sh = gc.open_by_url("https://docs.google.com/spreadsheets/d/1-cDCZDq8r1rGDVYpY_JhQvb0srhqsIiPhGWaxRC1TPw/edit?usp=sharing")
